@@ -172,6 +172,34 @@
     .b64-hint span { color: var(--accent); font-family: var(--mono); }
 
     /* ══════════════════════════════════════════
+       TYPE FILTER (الكل / أفلام / مسلسلات)
+    ══════════════════════════════════════════ */
+    .filter-tabs {
+      display: flex;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .filter-tab {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-s);
+      color: var(--text-dim);
+      font-family: var(--font);
+      font-size: .8rem;
+      font-weight: 700;
+      padding: 8px 0;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .filter-tab.active {
+      background: var(--grad);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    /* ══════════════════════════════════════════
        WARNING BANNER
     ══════════════════════════════════════════ */
     .warn-banner {
@@ -261,9 +289,9 @@
     /* card header row — clickable */
     .card-head {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 13px 14px;
+      align-items: flex-start;
+      gap: 13px;
+      padding: 14px;
       cursor: pointer;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -271,31 +299,32 @@
     .card-head:active { background: rgba(255,255,255,.03); }
 
     .card-thumb {
-      width: 44px; height: 60px;
+      width: 76px; height: 108px;
       object-fit: cover;
-      border-radius: var(--r-xs);
+      border-radius: var(--r-s);
       background: var(--border);
       flex-shrink: 0;
       font-size: 0; /* hide alt text */
+      box-shadow: 0 4px 14px rgba(0,0,0,.35);
     }
     .card-thumb-placeholder {
-      width: 44px; height: 60px;
-      border-radius: var(--r-xs);
+      width: 76px; height: 108px;
+      border-radius: var(--r-s);
       background: var(--surface);
       border: 1px solid var(--border);
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.4rem;
+      font-size: 2rem;
     }
 
-    .card-info { flex: 1; min-width: 0; }
+    .card-info { flex: 1; min-width: 0; padding-top: 1px; }
     .card-title {
-      font-size: .95rem;
+      font-size: 1rem;
       font-weight: 700;
       line-height: 1.3;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       /* two-line clamp */
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -303,17 +332,33 @@
       overflow: hidden;
     }
     .card-title-en {
-      font-size: .75rem;
+      font-size: .76rem;
       color: var(--text-dim);
-      margin-bottom: 5px;
+      margin-bottom: 6px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    /* star rating row */
+    .card-rating {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 7px;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .card-rating .star-ic { font-size: .82rem; }
+    .card-rating .duration-sep { color: var(--muted); font-weight: 400; margin: 0 2px; }
+    .card-rating .duration-txt { color: var(--text-dim); font-weight: 600; }
+
     .card-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      margin-bottom: 7px;
     }
     .badge {
       font-size: .68rem;
@@ -321,18 +366,75 @@
       padding: 2px 7px;
       border-radius: 20px;
       border: 1px solid;
+      white-space: nowrap;
     }
     .badge-year  { color: var(--gold);    border-color: rgba(245,197,66,.3); background: rgba(245,197,66,.08); }
     .badge-type  { color: var(--accent);  border-color: rgba(61,142,240,.3); background: rgba(61,142,240,.08); }
     .badge-genre { color: var(--text-dim);border-color: var(--border);       background: transparent; }
+
+    /* quality badges shown directly on the collapsed card */
+    .card-qbadges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 18px;
+    }
+    .qb {
+      font-size: .63rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 5px;
+      color: var(--success);
+      border: 1px solid rgba(46,201,138,.35);
+      background: rgba(46,201,138,.08);
+      letter-spacing: .02em;
+    }
+    .qb-loading { color: var(--muted); font-size: .68rem; }
 
     .card-chevron {
       color: var(--muted);
       font-size: .85rem;
       transition: transform .25s;
       flex-shrink: 0;
+      align-self: center;
     }
     .movie-card.open .card-chevron { transform: rotate(180deg); }
+
+    /* synopsis block, shown inside expanded card-body */
+    .card-synopsis {
+      font-size: .82rem;
+      line-height: 1.7;
+      color: var(--text-dim);
+      padding: 12px 0 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .card-synopsis strong { color: var(--text); }
+
+    .card-extra-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 10px;
+    }
+    .trailer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(242,92,92,.1);
+      border: 1.5px solid rgba(242,92,92,.35);
+      color: var(--danger);
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .trailer-btn:active { transform: scale(.97); }
 
     /* card body — expanded quality & links */
     .card-body {
@@ -611,6 +713,11 @@
         <span id="btnText">بحث</span>
       </button>
     </div>
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">الكل</button>
+      <button class="filter-tab" data-filter="movie" onclick="setFilter('movie')">🎬 أفلام</button>
+      <button class="filter-tab" data-filter="series" onclick="setFilter('series')">📺 مسلسلات</button>
+    </div>
     <div class="b64-hint" id="b64hint"></div>
   </div>
 
@@ -673,8 +780,51 @@
   const $b64hint  = document.getElementById('b64hint');
   const $results  = document.getElementById('results');
 
-  // Enter key triggers search
-  $q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  // Enter key triggers search immediately
+  $q.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(debounceTimer); doSearch(); } });
+
+  // ── Instant search: fires automatically as the user types ──
+  let debounceTimer = null;
+  $q.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const val = $q.value.trim();
+    if (!val) {
+      $b64hint.textContent = '';
+      $results.innerHTML = `
+        <div class="state-box">
+          <div class="si">🎞️</div>
+          <p>ابحث عن فيلم للبدء<br/><span style="font-size:.8rem">مثال: Batman · Titanic · الرسالة</span></p>
+        </div>`;
+      return;
+    }
+    debounceTimer = setTimeout(doSearch, 450);
+  });
+
+  // ── Type filter: all / movie / series ──
+  let currentFilter = 'all';
+  let lastMovies     = []; // cache of the last raw API results, for client-side filtering
+
+  function setFilter(type) {
+    currentFilter = type;
+    document.querySelectorAll('.filter-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.filter === type);
+    });
+    if (lastMovies.length) applyFilterAndRender();
+  }
+
+  function applyFilterAndRender() {
+    const filtered = lastMovies.filter(m => {
+      if (currentFilter === 'all') return true;
+      const typeVal = String(m.kind || m.video_type || m.type || '');
+      const isMovie = typeVal === '1' || typeVal.toLowerCase() === 'movie';
+      return currentFilter === 'movie' ? isMovie : !isMovie;
+    });
+    if (!filtered.length) {
+      showEmpty($q.value.trim());
+    } else {
+      renderMovies(filtered);
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════
   //  SEARCH — main entry point
@@ -704,11 +854,13 @@
 
       const data = await res.json();
 
-      // ── 3. Render ───────────────────────────────────────────
-      if (!Array.isArray(data) || data.length === 0) {
+      // ── 3. Cache + Render (respecting active type filter) ──
+      lastMovies = Array.isArray(data) ? data : [];
+
+      if (!lastMovies.length) {
         showEmpty(raw);
       } else {
-        renderMovies(data);
+        applyFilterAndRender();
       }
 
     } catch (err) {
@@ -748,10 +900,11 @@
       card.dataset.isMovie  = isMovie ? '1' : '0';
       card.dataset.fetched  = '0'; // becomes '1' after first deep fetch
 
-      // ── Thumbnail ──────────────────────────────────────────
-      const thumbHtml = m.imgThumbObjUrl || m.imgObjUrl || m.imgURL || m.image || m.poster
+      // ── Thumbnail (prefer larger medium-thumb for the bigger card) ──
+      const thumbSrc = m.imgMediumThumbObjUrl || m.imgThumbObjUrl || m.imgObjUrl || m.imgURL || m.image || m.poster || '';
+      const thumbHtml = thumbSrc
         ? `<img class="card-thumb"
-               src="${esc(m.imgURL || m.image || m.poster)}"
+               src="${esc(thumbSrc)}"
                alt=""
                onerror="this.replaceWith(makePlaceholder())"
             />`
@@ -760,7 +913,28 @@
       const titleAr = esc(m.ar_title || m.title || m.name || '');
       const titleEn = esc(m.en_title || m.title_e || m.en_name || m.title_en || '');
       const year    = esc(m.year    || m.releaseYear || m.release_year || '');
-      const genre   = esc((m.categories && m.categories[0] && m.categories[0].ar_title) || m.main_category || m.category || '');
+
+      // ── Stars rating (⭐) ────────────────────────────────────
+      const starsVal = parseFloat(m.stars || m.rate_avg || m.rating || '');
+      const starsHtml = !isNaN(starsVal) && starsVal > 0
+        ? `<span class="star-ic">⭐</span><span>${starsVal.toFixed(1)}</span>`
+        : '';
+
+      // ── Duration (API gives minutes, e.g. "3004.21") ────────
+      const durRaw = parseFloat(m.duration || '');
+      const durHtml = !isNaN(durRaw) && durRaw > 0
+        ? `${starsHtml ? `<span class="duration-sep">·</span>` : ''}<span class="duration-txt">⏱ ${formatDuration(durRaw)}</span>`
+        : '';
+
+      const ratingRowHtml = (starsHtml || durHtml)
+        ? `<div class="card-rating">${starsHtml}${durHtml}</div>`
+        : '';
+
+      // ── Genres (show up to 2 on the card) ───────────────────
+      const cats = Array.isArray(m.categories) ? m.categories : [];
+      const genreBadges = cats.slice(0, 2)
+        .map(c => `<span class="badge badge-genre">${esc(c.ar_title || c.en_title || '')}</span>`)
+        .join('');
 
       // ── Card skeleton (card-body filled on first open) ─────
       card.innerHTML = `
@@ -769,11 +943,13 @@
           <div class="card-info">
             <div class="card-title">${titleAr || titleEn || 'بدون عنوان'}</div>
             ${titleEn ? `<div class="card-title-en">${titleEn}</div>` : ''}
+            ${ratingRowHtml}
             <div class="card-meta">
               ${year  ? `<span class="badge badge-year">${year}</span>` : ''}
               <span class="badge badge-type">${typeBadge}</span>
-              ${genre ? `<span class="badge badge-genre">${genre}</span>` : ''}
+              ${genreBadges}
             </div>
+            <div class="card-qbadges" id="qbadges-${idx}"></div>
           </div>
           <div class="card-chevron">▼</div>
         </div>
@@ -781,11 +957,22 @@
           <!-- Populated by deepFetch() on first expand -->
         </div>`;
 
+      // Stash raw item data for synopsis/trailer rendering on expand
+      card.dataset.raw = JSON.stringify({
+        ar_content: m.ar_content || '',
+        en_content: m.en_content || '',
+        trailer: m.trailer || ''
+      });
+
       list.appendChild(card);
     });
 
     // ── Single delegated click handler for all card heads ───
     list.addEventListener('click', e => {
+      // Trailer button (must be checked before generic head click)
+      const trailerBtn = e.target.closest('.trailer-btn');
+      if (trailerBtn) { e.stopPropagation(); return; } // let the <a> follow its href
+
       const head = e.target.closest('.card-head[data-idx]');
       if (head) { toggleCard(+head.dataset.idx); return; }
 
@@ -877,6 +1064,7 @@
       : `<p class="no-streams">لا تتوفر روابط مباشرة لهذا العنوان حالياً.</p>`;
 
     body.innerHTML = `
+      ${renderSynopsisBlock(card)}
       <div class="quality-label">اختر الجودة</div>
       <div class="quality-pills" id="pills-${idx}">${pillsHtml}</div>
       <div class="link-box" id="linkbox-${idx}">
@@ -889,6 +1077,9 @@
 
     // Persist streams on the card element for selectQuality()
     card.dataset.streams = JSON.stringify(streams);
+
+    // Show quality badges on the collapsed card head too
+    renderQualityBadges(idx, streams);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -903,7 +1094,7 @@
     const episodes = Array.isArray(data) ? data : (data.episodes || []);
 
     if (!episodes.length) {
-      body.innerHTML = `<p class="no-streams" style="padding:14px 0">لا تتوفر حلقات لهذا المسلسل.</p>`;
+      body.innerHTML = `${renderSynopsisBlock(card)}<p class="no-streams" style="padding:14px 0">لا تتوفر حلقات لهذا المسلسل.</p>`;
       return;
     }
 
@@ -931,6 +1122,7 @@
       : '';
 
     body.innerHTML = `
+      ${renderSynopsisBlock(card)}
       ${tabsHtml}
       <div id="episodes-${idx}"></div>`;
 
@@ -1157,6 +1349,69 @@
         ❌ فشل جلب البيانات
         <small style="direction:ltr;display:block;margin-top:4px;opacity:.7">${esc(msg)}</small>
       </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Build the synopsis + trailer block shown at the top of an
+  //  expanded card-body (works for both movies and series).
+  // ═══════════════════════════════════════════════════════════
+  function renderSynopsisBlock(card) {
+    let raw = {};
+    try { raw = JSON.parse(card.dataset.raw || '{}'); } catch {}
+
+    const story = raw.ar_content?.trim() || raw.en_content?.trim() || '';
+    const trailerUrl = buildTrailerUrl(raw.trailer);
+
+    if (!story && !trailerUrl) return '';
+
+    return `
+      <div class="card-synopsis">
+        ${story ? `<strong>القصة:</strong> ${esc(story)}` : ''}
+        ${trailerUrl ? `
+          <div class="card-extra-row">
+            <a class="trailer-btn" href="${esc(trailerUrl)}" target="_blank" rel="noopener">▶️ تريلر يوتيوب</a>
+          </div>` : ''}
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Normalize the "trailer" field into a playable YouTube URL.
+  //  It may already be a full URL, a youtube video ID, or empty.
+  // ═══════════════════════════════════════════════════════════
+  function buildTrailerUrl(trailer) {
+    const t = String(trailer || '').trim();
+    if (!t) return '';
+    if (/^https?:\/\//i.test(t)) return t;
+    // Looks like a bare YouTube video ID
+    if (/^[\w-]{6,15}$/.test(t)) return `https://www.youtube.com/watch?v=${t}`;
+    return '';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Render small green quality badges directly on the
+  //  collapsed card head, once streams are known (movies only —
+  //  series quality varies per-episode so badges stay empty).
+  // ═══════════════════════════════════════════════════════════
+  function renderQualityBadges(idx, streams) {
+    const el = document.getElementById(`qbadges-${idx}`);
+    if (!el) return;
+    if (!streams.length) { el.innerHTML = ''; return; }
+
+    // Show up to 4 distinct quality labels
+    const labels = [...new Set(streams.map(s => s.label))].slice(0, 4);
+    el.innerHTML = labels.map(l => `<span class="qb">${esc(l)}</span>`).join('');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Format a duration given in minutes (API sends e.g. "3004.21")
+  //  into "Xس Yد" / "Yد" — Arabic hours/minutes short form.
+  // ═══════════════════════════════════════════════════════════
+  function formatDuration(minutesRaw) {
+    const totalMin = Math.round(minutesRaw);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h > 0) return `${h}س ${m}د`;
+    return `${m}د`;
   }
 
   // ═══════════════════════════════════════════════════════════
