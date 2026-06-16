@@ -433,6 +433,150 @@
       color: var(--warn);
       margin-top: 6px;
     }
+
+    /* ══════════════════════════════════════════
+       DEEP-FETCH LOADING STATE (inside card)
+    ══════════════════════════════════════════ */
+    .card-loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 0 6px;
+      color: var(--muted);
+      font-size: .83rem;
+    }
+    .card-spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════
+       SERIES — SEASON TABS
+    ══════════════════════════════════════════ */
+    .season-tabs-label {
+      font-size: .72rem;
+      color: var(--muted);
+      margin: 12px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .season-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .season-tab {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 5px 14px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s, color .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .season-tab:hover  { border-color: var(--accent2); }
+    .season-tab.active {
+      background: linear-gradient(135deg, #854cf7, #3d8ef0);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    /* ══════════════════════════════════════════
+       SERIES — EPISODE LIST
+    ══════════════════════════════════════════ */
+    .episodes-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .episode-item {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-s);
+      overflow: hidden;
+      transition: border-color .15s;
+    }
+    .episode-item.open { border-color: var(--accent2); }
+
+    .episode-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .episode-head:active { background: rgba(255,255,255,.03); }
+
+    .ep-num {
+      min-width: 28px;
+      height: 28px;
+      background: var(--border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      font-weight: 800;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .episode-item.open .ep-num {
+      background: linear-gradient(135deg, #854cf7, #3d8ef0);
+      color: #fff;
+    }
+
+    .ep-title {
+      flex: 1;
+      font-size: .84rem;
+      font-weight: 600;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ep-chevron {
+      color: var(--muted);
+      font-size: .75rem;
+      transition: transform .2s;
+      flex-shrink: 0;
+    }
+    .episode-item.open .ep-chevron { transform: rotate(180deg); }
+
+    .episode-body {
+      display: none;
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border);
+      animation: slideIn .15s ease;
+    }
+    .episode-item.open .episode-body { display: block; }
+
+    /* episode quality pills (re-use .q-pill styles) */
+    .ep-quality-label {
+      font-size: .68rem;
+      color: var(--muted);
+      margin: 10px 0 6px;
+      letter-spacing: .04em;
+    }
+    .ep-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .ep-link-box { display: none; }
+    .ep-link-box.show { display: block; animation: slideIn .15s ease; }
   </style>
 </head>
 <body>
@@ -495,10 +639,29 @@
   if (tg) { tg.ready(); tg.expand(); }
 
   // ═══════════════════════════════════════════════════════════
-  //  CONFIG
+  //  CONFIG — all Cinemana API endpoints
   // ═══════════════════════════════════════════════════════════
+  const API_BASE   = 'https://cinemana.shabakaty.cc/api/android';
+
+  /** Search results (existing) */
   const API_SEARCH = (b64) =>
-    `https://cinemana.shabakaty.cc/api/android/video/V/2/itemsPerPage/20/video_title_search/${b64}/pageNumber/0/level/0`;
+    `${API_BASE}/video/V/2/itemsPerPage/20/video_title_search/${b64}/pageNumber/0/level/0`;
+
+  /** Detailed movie info + direct video links */
+  const API_MOVIE_DETAIL = (id) =>
+    `${API_BASE}/transcoderVideoFiles/V/0/id/${id}`;
+
+  /** Seasons list for a series */
+  const API_SEASONS = (id) =>
+    `${API_BASE}/seasons/V/2/id/${id}`;
+
+  /** Episodes list for a given season */
+  const API_EPISODES = (id, seasonId) =>
+    `${API_BASE}/seasonEpisode/V/2/id/${id}/seasonId/${seasonId}`;
+
+  /** Video links for a specific episode */
+  const API_EP_LINKS = (episodeId) =>
+    `${API_BASE}/transcoderVideoFiles/V/0/id/${episodeId}`;
 
   // ═══════════════════════════════════════════════════════════
   //  DOM shortcuts
@@ -556,7 +719,11 @@
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  RENDER movie list
+  //  RENDER movie/series list (search results)
+  //
+  //  Cards are rendered with an empty card-body on first load.
+  //  Actual content (links or seasons) is injected lazily when
+  //  the user opens a card for the first time (Deep Fetch).
   // ═══════════════════════════════════════════════════════════
   function renderMovies(movies) {
     $results.innerHTML = `
@@ -566,19 +733,22 @@
     const list = document.getElementById('movieList');
 
     movies.forEach((m, idx) => {
-      // ── Parse quality streams ──────────────────────────────
-      // Cinemana API puts streams in:
-      //   m.allVideoLinks  → array of { videoServer, link, quality }
-      //   m.videoLinks     → same
-      //   m.videos         → array of { quality, link }
-      // We handle all three shapes.
-      const streams = parseStreams(m);
-
-      // ── Card HTML ──────────────────────────────────────────
       const card = document.createElement('div');
       card.className = 'movie-card';
       card.dataset.idx = idx;
 
+      // ── Detect content type ────────────────────────────────
+      // video_type=1 → Movie, video_type=2 (or anything else) → Series
+      const typeVal  = String(m.video_type || m.type || '');
+      const isMovie  = typeVal === '1' || typeVal.toLowerCase() === 'movie';
+      const typeBadge = isMovie ? 'فيلم' : 'مسلسل';
+
+      // Store the raw item data and type flag on the element
+      card.dataset.itemId   = m.id || m.ID || m.video_id || '';
+      card.dataset.isMovie  = isMovie ? '1' : '0';
+      card.dataset.fetched  = '0'; // becomes '1' after first deep fetch
+
+      // ── Thumbnail ──────────────────────────────────────────
       const thumbHtml = m.imgURL || m.image || m.poster
         ? `<img class="card-thumb"
                src="${esc(m.imgURL || m.image || m.poster)}"
@@ -591,66 +761,308 @@
       const titleEn = esc(m.title_e || m.en_name || m.en_title || m.title_en || '');
       const year    = esc(m.year    || m.releaseYear || m.release_year || '');
       const genre   = esc(m.main_category || m.category || m.type_title || '');
-      const isMovie = String(m.video_type || m.type || '').includes('1') ? 'فيلم' : 'محتوى';
 
-      const pillsHtml = streams.length
-        ? streams.map((s, si) =>
-            `<button class="q-pill" data-idx="${idx}" data-si="${si}">${esc(s.label)}</button>`
-          ).join('')
-        : `<p class="no-streams">لا تتوفر روابط مباشرة لهذا العنوان حالياً.</p>`;
-
+      // ── Card skeleton (card-body filled on first open) ─────
       card.innerHTML = `
-        <div class="card-head" onclick="toggleCard(${idx})">
+        <div class="card-head" data-idx="${idx}">
           ${thumbHtml}
           <div class="card-info">
             <div class="card-title">${titleAr || titleEn || 'بدون عنوان'}</div>
             ${titleEn ? `<div class="card-title-en">${titleEn}</div>` : ''}
             <div class="card-meta">
               ${year  ? `<span class="badge badge-year">${year}</span>` : ''}
-              <span class="badge badge-type">${isMovie}</span>
+              <span class="badge badge-type">${typeBadge}</span>
               ${genre ? `<span class="badge badge-genre">${genre}</span>` : ''}
             </div>
           </div>
           <div class="card-chevron">▼</div>
         </div>
-        <div class="card-body">
-          <div class="quality-label">اختر الجودة</div>
-          <div class="quality-pills" id="pills-${idx}">${pillsHtml}</div>
-          <div class="link-box" id="linkbox-${idx}">
-            <div class="link-row">
-              <input class="link-field" id="linkfield-${idx}" type="text" readonly dir="ltr" />
-              <button class="copy-btn" id="copybtn-${idx}" onclick="copyLink(${idx})">نسخ</button>
-            </div>
-            <div class="expiry-tag">⏳ ينتهي هذا الرابط خلال ساعتين — ابدأ المشاهدة الآن</div>
-          </div>
+        <div class="card-body" id="body-${idx}">
+          <!-- Populated by deepFetch() on first expand -->
         </div>`;
 
-      // Store streams on the element for later
-      card.dataset.streams = JSON.stringify(streams);
       list.appendChild(card);
     });
 
-    // ── Delegate quality pill clicks ────────────────────────
-    document.getElementById('movieList').addEventListener('click', e => {
-      const pill = e.target.closest('.q-pill');
-      if (!pill) return;
-      const idx = +pill.dataset.idx;
-      const si  = +pill.dataset.si;
-      selectQuality(idx, si);
+    // ── Single delegated click handler for all card heads ───
+    list.addEventListener('click', e => {
+      const head = e.target.closest('.card-head[data-idx]');
+      if (head) { toggleCard(+head.dataset.idx); return; }
+
+      // Movie quality pill click
+      const pill = e.target.closest('.q-pill[data-idx]');
+      if (pill) { selectQuality(+pill.dataset.idx, +pill.dataset.si); return; }
+
+      // Episode head click (series)
+      const epHead = e.target.closest('.episode-head[data-card-idx]');
+      if (epHead) { toggleEpisode(epHead); return; }
+
+      // Episode quality pill click
+      const epPill = e.target.closest('.ep-pill[data-ep-id]');
+      if (epPill) { selectEpQuality(epPill); return; }
+
+      // Season tab click
+      const seasonTab = e.target.closest('.season-tab[data-season-id]');
+      if (seasonTab) { selectSeason(seasonTab); }
     });
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Toggle card open/close
+  //  Toggle card open / close
+  //  On the FIRST open, triggers a deep fetch for that item.
   // ═══════════════════════════════════════════════════════════
   function toggleCard(idx) {
     const card = document.querySelector(`.movie-card[data-idx="${idx}"]`);
     if (!card) return;
-    card.classList.toggle('open');
+
+    const isOpen = card.classList.toggle('open');
+
+    // Only fire the deep fetch when opening and not yet fetched
+    if (isOpen && card.dataset.fetched === '0') {
+      deepFetch(card, idx);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Select quality → show link
+  //  DEEP FETCH — dispatches to movie or series branch
+  // ═══════════════════════════════════════════════════════════
+  async function deepFetch(card, idx) {
+    const itemId  = card.dataset.itemId;
+    const isMovie = card.dataset.isMovie === '1';
+    const body    = document.getElementById(`body-${idx}`);
+
+    if (!itemId) {
+      body.innerHTML = renderCardError('لا يتوفر معرّف لهذا العنصر.');
+      card.dataset.fetched = '1';
+      return;
+    }
+
+    // Show an inline spinner while fetching
+    body.innerHTML = `
+      <div class="card-loading">
+        <div class="card-spinner"></div>
+        <span>${isMovie ? 'جارٍ جلب روابط الفيلم…' : 'جارٍ جلب الموسم…'}</span>
+      </div>`;
+
+    try {
+      if (isMovie) {
+        await deepFetchMovie(card, idx, itemId, body);
+      } else {
+        await deepFetchSeries(card, idx, itemId, body);
+      }
+      card.dataset.fetched = '1'; // Mark as done — won't refetch on re-open
+    } catch (err) {
+      body.innerHTML = renderCardError(err.message);
+      // Leave fetched=0 so the user can retry by closing and reopening
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  MOVIE branch — fetch transcoder endpoint, render quality pills
+  // ═══════════════════════════════════════════════════════════
+  async function deepFetchMovie(card, idx, itemId, body) {
+    const res  = await fetch(API_MOVIE_DETAIL(itemId), { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data    = await res.json();
+    // The transcoder endpoint may return an array or a single object
+    const payload = Array.isArray(data) ? data[0] : data;
+    const streams = parseStreams(payload || {});
+
+    // If no streams found in transcoder response, fall back to search-result data
+    // (card doesn't have raw search data anymore; streams will just be empty)
+    const pillsHtml = streams.length
+      ? streams.map((s, si) =>
+          `<button class="q-pill" data-idx="${idx}" data-si="${si}">${esc(s.label)}</button>`
+        ).join('')
+      : `<p class="no-streams">لا تتوفر روابط مباشرة لهذا العنوان حالياً.</p>`;
+
+    body.innerHTML = `
+      <div class="quality-label">اختر الجودة</div>
+      <div class="quality-pills" id="pills-${idx}">${pillsHtml}</div>
+      <div class="link-box" id="linkbox-${idx}">
+        <div class="link-row">
+          <input class="link-field" id="linkfield-${idx}" type="text" readonly dir="ltr" />
+          <button class="copy-btn" id="copybtn-${idx}" onclick="copyLink(${idx})">نسخ</button>
+        </div>
+        <div class="expiry-tag">⏳ ينتهي هذا الرابط خلال ساعتين — ابدأ المشاهدة الآن</div>
+      </div>`;
+
+    // Persist streams on the card element for selectQuality()
+    card.dataset.streams = JSON.stringify(streams);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  SERIES branch — fetch seasons, then episodes for S1
+  // ═══════════════════════════════════════════════════════════
+  async function deepFetchSeries(card, idx, itemId, body) {
+    // ── Step 1: fetch seasons list ─────────────────────────
+    const seasRes  = await fetch(API_SEASONS(itemId), { headers: { Accept: 'application/json' } });
+    if (!seasRes.ok) throw new Error(`HTTP ${seasRes.status} (seasons)`);
+
+    const seasons  = await seasRes.json();
+    const seasArr  = Array.isArray(seasons) ? seasons : (seasons.seasons || []);
+
+    if (!seasArr.length) {
+      body.innerHTML = `<p class="no-streams" style="padding:14px 0">لا تتوفر مواسم لهذا المسلسل.</p>`;
+      return;
+    }
+
+    // ── Step 2: build season tabs (store season list on card) ─
+    card.dataset.seasons = JSON.stringify(seasArr);
+    card.dataset.itemId  = itemId; // already set, just making sure
+
+    const tabsHtml = seasArr.map((s, si) => {
+      const label = s.title || s.name || s.ar_title || `الموسم ${si + 1}`;
+      return `<button class="season-tab${si === 0 ? ' active' : ''}"
+                data-card-idx="${idx}"
+                data-season-id="${esc(s.id || s.seasonId || si)}"
+                data-season-si="${si}"
+              >${esc(label)}</button>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="season-tabs-label">الموسم</div>
+      <div class="season-tabs" id="seasons-${idx}">${tabsHtml}</div>
+      <div id="episodes-${idx}">
+        <div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>
+      </div>`;
+
+    // ── Step 3: load episodes for the first season ─────────
+    await loadEpisodes(card, idx, itemId, seasArr[0].id || seasArr[0].seasonId || 0);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Season tab selection
+  // ═══════════════════════════════════════════════════════════
+  async function selectSeason(tab) {
+    const idx      = +tab.dataset.cardIdx;
+    const seasonId = tab.dataset.seasonId;
+    const card     = document.querySelector(`.movie-card[data-idx="${idx}"]`);
+    if (!card) return;
+
+    // Update active tab style
+    card.querySelectorAll('.season-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Show inline loading in episodes area
+    const epArea = document.getElementById(`episodes-${idx}`);
+    epArea.innerHTML = `<div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>`;
+
+    try {
+      await loadEpisodes(card, idx, card.dataset.itemId, seasonId);
+    } catch (err) {
+      epArea.innerHTML = renderCardError(err.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Load episodes for a given season and render them
+  // ═══════════════════════════════════════════════════════════
+  async function loadEpisodes(card, idx, itemId, seasonId) {
+    const epArea = document.getElementById(`episodes-${idx}`);
+    epArea.innerHTML = `<div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>`;
+
+    const res = await fetch(API_EPISODES(itemId, seasonId), { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status} (episodes)`);
+
+    const data    = await res.json();
+    const episodes = Array.isArray(data) ? data : (data.episodes || []);
+
+    if (!episodes.length) {
+      epArea.innerHTML = `<p class="no-streams" style="padding:8px 0">لا تتوفر حلقات لهذا الموسم.</p>`;
+      return;
+    }
+
+    // Build episode items — links fetched on demand when each episode is expanded
+    const epHtml = episodes.map((ep, ei) => {
+      const epId    = ep.id || ep.episodeId || ep.video_id || '';
+      const epNum   = ep.episode_number || ep.number || ep.num || (ei + 1);
+      const epTitle = esc(ep.title || ep.name || ep.ar_title || `الحلقة ${epNum}`);
+
+      return `
+        <div class="episode-item" id="ep-item-${idx}-${ei}">
+          <div class="episode-head"
+               data-card-idx="${idx}"
+               data-ep-idx="${ei}"
+               data-ep-id="${esc(epId)}"
+               data-ep-fetched="0">
+            <div class="ep-num">${epNum}</div>
+            <div class="ep-title">${epTitle}</div>
+            <div class="ep-chevron">▼</div>
+          </div>
+          <div class="episode-body" id="ep-body-${idx}-${ei}">
+            <!-- Populated on first expand -->
+          </div>
+        </div>`;
+    }).join('');
+
+    epArea.innerHTML = `<div class="episodes-wrap">${epHtml}</div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Toggle episode open / close (deep fetch on first open)
+  // ═══════════════════════════════════════════════════════════
+  async function toggleEpisode(head) {
+    const cardIdx  = head.dataset.cardIdx;
+    const epIdx    = head.dataset.epIdx;
+    const epId     = head.dataset.epId;
+    const epItem   = document.getElementById(`ep-item-${cardIdx}-${epIdx}`);
+    const epBody   = document.getElementById(`ep-body-${cardIdx}-${epIdx}`);
+    if (!epItem) return;
+
+    const isOpen = epItem.classList.toggle('open');
+
+    if (isOpen && head.dataset.epFetched === '0') {
+      // Deep fetch episode video links
+      epBody.innerHTML = `<div class="card-loading" style="padding:10px 0 2px"><div class="card-spinner"></div><span>جارٍ جلب روابط الحلقة…</span></div>`;
+      try {
+        await deepFetchEpisode(cardIdx, epIdx, epId, epBody);
+        head.dataset.epFetched = '1';
+      } catch (err) {
+        epBody.innerHTML = renderCardError(err.message);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Fetch video links for a single episode
+  // ═══════════════════════════════════════════════════════════
+  async function deepFetchEpisode(cardIdx, epIdx, epId, epBody) {
+    const res  = await fetch(API_EP_LINKS(epId), { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data    = await res.json();
+    const payload = Array.isArray(data) ? data[0] : data;
+    const streams = parseStreams(payload || {});
+
+    const pillsHtml = streams.length
+      ? streams.map((s, si) =>
+          `<button class="q-pill ep-pill"
+                   data-ep-id="${esc(epId)}"
+                   data-card-idx="${cardIdx}"
+                   data-ep-idx="${epIdx}"
+                   data-si="${si}"
+                   data-streams='${esc(JSON.stringify(streams))}'
+                  >${esc(s.label)}</button>`
+        ).join('')
+      : `<p class="no-streams">لا تتوفر روابط لهذه الحلقة.</p>`;
+
+    epBody.innerHTML = `
+      <div class="ep-quality-label">اختر الجودة</div>
+      <div class="ep-pills">${pillsHtml}</div>
+      <div class="ep-link-box" id="ep-linkbox-${cardIdx}-${epIdx}">
+        <div class="link-row">
+          <input class="link-field" id="ep-linkfield-${cardIdx}-${epIdx}" type="text" readonly dir="ltr" />
+          <button class="copy-btn" id="ep-copybtn-${cardIdx}-${epIdx}"
+                  onclick="copyEpLink('${cardIdx}','${epIdx}')">نسخ</button>
+        </div>
+        <div class="expiry-tag">⏳ ينتهي هذا الرابط خلال ساعتين — ابدأ المشاهدة الآن</div>
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Select quality for a movie card → reveal link
   // ═══════════════════════════════════════════════════════════
   function selectQuality(idx, si) {
     const card    = document.querySelector(`.movie-card[data-idx="${idx}"]`);
@@ -658,12 +1070,11 @@
     const stream  = streams[si];
     if (!stream) return;
 
-    // Update pill active state
+    // Highlight active pill
     card.querySelectorAll('.q-pill').forEach((p, i) => {
       p.classList.toggle('active', i === si);
     });
 
-    // Show link
     const linkBox   = document.getElementById(`linkbox-${idx}`);
     const linkField = document.getElementById(`linkfield-${idx}`);
     const copyBtn   = document.getElementById(`copybtn-${idx}`);
@@ -676,11 +1087,52 @@
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Copy to clipboard
+  //  Select quality for an episode → reveal link
+  // ═══════════════════════════════════════════════════════════
+  function selectEpQuality(pill) {
+    const cardIdx = pill.dataset.cardIdx;
+    const epIdx   = pill.dataset.epIdx;
+    const si      = +pill.dataset.si;
+    const streams = JSON.parse(pill.dataset.streams || '[]');
+    const stream  = streams[si];
+    if (!stream) return;
+
+    // Highlight active pill within this episode
+    const epBody = document.getElementById(`ep-body-${cardIdx}-${epIdx}`);
+    epBody.querySelectorAll('.ep-pill').forEach((p, i) => {
+      p.classList.toggle('active', i === si);
+    });
+
+    const linkBox   = document.getElementById(`ep-linkbox-${cardIdx}-${epIdx}`);
+    const linkField = document.getElementById(`ep-linkfield-${cardIdx}-${epIdx}`);
+    const copyBtn   = document.getElementById(`ep-copybtn-${cardIdx}-${epIdx}`);
+
+    linkField.value = stream.url;
+    copyBtn.textContent = 'نسخ';
+    copyBtn.classList.remove('done');
+    linkBox.classList.add('show');
+    linkField.scrollLeft = 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Copy to clipboard — movie card
   // ═══════════════════════════════════════════════════════════
   async function copyLink(idx) {
     const field = document.getElementById(`linkfield-${idx}`);
     const btn   = document.getElementById(`copybtn-${idx}`);
+    await _doCopy(field, btn);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Copy to clipboard — episode
+  // ═══════════════════════════════════════════════════════════
+  async function copyEpLink(cardIdx, epIdx) {
+    const field = document.getElementById(`ep-linkfield-${cardIdx}-${epIdx}`);
+    const btn   = document.getElementById(`ep-copybtn-${cardIdx}-${epIdx}`);
+    await _doCopy(field, btn);
+  }
+
+  async function _doCopy(field, btn) {
     try {
       await navigator.clipboard.writeText(field.value);
     } catch {
@@ -693,6 +1145,17 @@
       btn.textContent = 'نسخ';
       btn.classList.remove('done');
     }, 2800);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Inline error HTML for card body
+  // ═══════════════════════════════════════════════════════════
+  function renderCardError(msg) {
+    return `
+      <div class="error-box" style="margin:12px 0;font-size:.8rem">
+        ❌ فشل جلب البيانات
+        <small style="direction:ltr;display:block;margin-top:4px;opacity:.7">${esc(msg)}</small>
+      </div>`;
   }
 
   // ═══════════════════════════════════════════════════════════
