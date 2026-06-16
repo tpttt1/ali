@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>سينمانا · بحث الأفلام</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    /* ══════════════════════════════════════════
+       DESIGN TOKENS
+    ══════════════════════════════════════════ */
+    :root {
+      --bg:         #0b0d12;
+      --surface:    #13161f;
+      --card:       #1a1e2b;
+      --card-hover: #1f2436;
+      --border:     #252b3d;
+      --border-lit: #3a4460;
+
+      --accent:     #3d8ef0;
+      --accent2:    #854cf7;
+      --grad:       linear-gradient(135deg, #3d8ef0, #854cf7);
+
+      --gold:       #f5c542;
+      --warn:       #f5a623;
+      --success:    #2ec98a;
+      --danger:     #f25c5c;
+      --muted:      #5d6a85;
+
+      --text:       #dde2f0;
+      --text-dim:   #8a93a8;
+
+      --r:  12px;
+      --r-s: 8px;
+      --r-xs: 5px;
+
+      --font: 'Segoe UI', Tahoma, Arial, sans-serif;
+      --mono: 'Courier New', monospace;
+    }
+
+    /* ══════════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 40px;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: contain;
+    }
+
+    /* ══════════════════════════════════════════
+       HEADER  — film-strip accent bar at top
+    ══════════════════════════════════════════ */
+    .film-strip {
+      height: 6px;
+      background: var(--grad);
+      position: relative;
+      overflow: hidden;
+    }
+    .film-strip::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0, transparent 18px,
+        rgba(0,0,0,.45) 18px, rgba(0,0,0,.45) 24px
+      );
+    }
+
+    .header {
+      padding: 20px 16px 10px;
+      text-align: center;
+    }
+    .header-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      font-size: 1.9rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 8px rgba(61,142,240,.5));
+    }
+    .header-text h1 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: right;
+    }
+    .header-text p {
+      font-size: .72rem;
+      color: var(--muted);
+      text-align: right;
+      margin-top: 1px;
+    }
+
+    /* ══════════════════════════════════════════
+       SEARCH BAR
+    ══════════════════════════════════════════ */
+    .search-section {
+      padding: 14px 16px 0;
+    }
+    .search-wrap {
+      display: flex;
+      gap: 8px;
+    }
+    .search-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: .95rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      caret-color: var(--accent);
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(61,142,240,.15);
+    }
+
+    .search-btn {
+      background: var(--grad);
+      border: none;
+      border-radius: var(--r);
+      color: #fff;
+      font-family: var(--font);
+      font-size: .9rem;
+      font-weight: 700;
+      padding: 0 18px;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+      min-width: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .search-btn:active { opacity: .82; transform: scale(.97); }
+    .search-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* encoded-query hint */
+    .b64-hint {
+      margin-top: 7px;
+      font-size: .7rem;
+      color: var(--muted);
+      direction: ltr;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 2px;
+      min-height: 1em;
+    }
+    .b64-hint span { color: var(--accent); font-family: var(--mono); }
+
+    /* ══════════════════════════════════════════
+       WARNING BANNER
+    ══════════════════════════════════════════ */
+    .warn-banner {
+      margin: 14px 16px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      background: rgba(245,166,35,.1);
+      border: 1px solid rgba(245,166,35,.3);
+      border-radius: var(--r-s);
+      padding: 10px 12px;
+      font-size: .78rem;
+      color: var(--warn);
+      line-height: 1.55;
+    }
+    .warn-banner .wi { font-size: 1rem; margin-top: 1px; flex-shrink: 0; }
+
+    /* ══════════════════════════════════════════
+       RESULTS AREA
+    ══════════════════════════════════════════ */
+    .results-section {
+      padding: 16px 16px 0;
+    }
+
+    /* Count label */
+    .results-label {
+      font-size: .76rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding-right: 2px;
+    }
+    .results-label strong { color: var(--text-dim); }
+
+    /* ── Empty / loading / error states ── */
+    .state-box {
+      text-align: center;
+      padding: 48px 20px 24px;
+      color: var(--muted);
+    }
+    .state-box .si { font-size: 2.8rem; margin-bottom: 12px; line-height: 1; }
+    .state-box p { font-size: .88rem; line-height: 1.6; }
+    .state-box p strong { color: var(--text-dim); }
+
+    .error-box {
+      background: rgba(242,92,92,.1);
+      border: 1px solid rgba(242,92,92,.3);
+      border-radius: var(--r-s);
+      color: var(--danger);
+      font-size: .84rem;
+      padding: 12px 16px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    /* ── Spinner ── */
+    .spinner-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 48px 0 24px;
+    }
+    .spinner {
+      width: 34px; height: 34px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap p { color: var(--muted); font-size: .85rem; }
+
+    /* ══════════════════════════════════════════
+       MOVIE CARD
+    ══════════════════════════════════════════ */
+    .movie-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .movie-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      transition: border-color .18s, background .18s;
+    }
+    .movie-card.open { border-color: var(--accent); }
+
+    /* card header row — clickable */
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card-head:active { background: rgba(255,255,255,.03); }
+
+    .card-thumb {
+      width: 44px; height: 60px;
+      object-fit: cover;
+      border-radius: var(--r-xs);
+      background: var(--border);
+      flex-shrink: 0;
+      font-size: 0; /* hide alt text */
+    }
+    .card-thumb-placeholder {
+      width: 44px; height: 60px;
+      border-radius: var(--r-xs);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+    .card-title {
+      font-size: .95rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      /* two-line clamp */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-title-en {
+      font-size: .75rem;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .badge {
+      font-size: .68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .badge-year  { color: var(--gold);    border-color: rgba(245,197,66,.3); background: rgba(245,197,66,.08); }
+    .badge-type  { color: var(--accent);  border-color: rgba(61,142,240,.3); background: rgba(61,142,240,.08); }
+    .badge-genre { color: var(--text-dim);border-color: var(--border);       background: transparent; }
+
+    .card-chevron {
+      color: var(--muted);
+      font-size: .85rem;
+      transition: transform .25s;
+      flex-shrink: 0;
+    }
+    .movie-card.open .card-chevron { transform: rotate(180deg); }
+
+    /* card body — expanded quality & links */
+    .card-body {
+      display: none;
+      padding: 0 14px 14px;
+      border-top: 1px solid var(--border);
+      animation: slideIn .18s ease;
+    }
+    .movie-card.open .card-body { display: block; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+    .quality-label {
+      font-size: .72rem;
+      color: var(--muted);
+      margin: 12px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .quality-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    .q-pill {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 5px 13px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s, color .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .q-pill:hover { border-color: var(--accent); }
+    .q-pill.active {
+      background: var(--grad);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    /* no streams message */
+    .no-streams {
+      font-size: .82rem;
+      color: var(--muted);
+      padding: 6px 0;
+    }
+
+    /* link output box */
+    .link-box { display: none; }
+    .link-box.show { display: block; animation: slideIn .15s ease; }
+
+    .link-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 7px;
+    }
+    .link-field {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-xs);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: .72rem;
+      padding: 9px 10px;
+      outline: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      direction: ltr;
+    }
+    .copy-btn {
+      background: var(--success);
+      border: none;
+      border-radius: var(--r-xs);
+      color: #fff;
+      font-family: var(--font);
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 0 13px;
+      cursor: pointer;
+      transition: opacity .15s, background .2s;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .copy-btn:active { opacity: .8; }
+    .copy-btn.done { background: var(--muted); }
+
+    .expiry-tag {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .71rem;
+      color: var(--warn);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Film-strip accent bar -->
+  <div class="film-strip"></div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="logo-icon">🎬</div>
+      <div class="header-text">
+        <h1>سينمانا · بحث الأفلام</h1>
+        <p>استخراج الروابط المباشرة للمشاهدة والتحميل</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-section">
+    <div class="search-wrap">
+      <input
+        class="search-input"
+        id="q"
+        type="search"
+        placeholder="اكتب اسم الفيلم بالعربي أو الإنجليزي…"
+        autocomplete="off"
+        inputmode="search"
+      />
+      <button class="search-btn" id="searchBtn" onclick="doSearch()">
+        <span id="btnIcon">🔍</span>
+        <span id="btnText">بحث</span>
+      </button>
+    </div>
+    <div class="b64-hint" id="b64hint"></div>
+  </div>
+
+  <!-- Warning -->
+  <div class="warn-banner">
+    <span class="wi">⚠️</span>
+    <span>
+      الروابط المُستخرجة <strong>صالحة لمدة ساعتين (2) فقط</strong> من وقت الاستخراج لأسباب أمنية.
+      احفظ الرابط وابدأ المشاهدة فوراً.
+    </span>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="results">
+    <div class="state-box">
+      <div class="si">🎞️</div>
+      <p>ابحث عن فيلم للبدء<br/><span style="font-size:.8rem">مثال: Batman · Titanic · الرسالة</span></p>
+    </div>
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════
+  //  TELEGRAM SDK
+  // ═══════════════════════════════════════════════════════════
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  // ═══════════════════════════════════════════════════════════
+  //  CONFIG
+  // ═══════════════════════════════════════════════════════════
+  const API_SEARCH = (b64) =>
+    `https://cinemana.shabakaty.cc/api/android/video/V/2/itemsPerPage/20/video_title_search/${b64}/pageNumber/0/level/0`;
+
+  // ═══════════════════════════════════════════════════════════
+  //  DOM shortcuts
+  // ═══════════════════════════════════════════════════════════
+  const $q        = document.getElementById('q');
+  const $btn      = document.getElementById('searchBtn');
+  const $btnText  = document.getElementById('btnText');
+  const $btnIcon  = document.getElementById('btnIcon');
+  const $b64hint  = document.getElementById('b64hint');
+  const $results  = document.getElementById('results');
+
+  // Enter key triggers search
+  $q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+  // ═══════════════════════════════════════════════════════════
+  //  SEARCH — main entry point
+  // ═══════════════════════════════════════════════════════════
+  async function doSearch() {
+    const raw = $q.value.trim();
+    if (!raw) return;
+
+    // ── 1. Base64 encode the query ──────────────────────────
+    //   btoa() needs a Latin string; unescape+encodeURIComponent handles Arabic
+    const b64 = btoa(unescape(encodeURIComponent(raw)));
+    const url = API_SEARCH(b64);
+
+    $b64hint.innerHTML = `Base64: <span>${b64}</span>`;
+
+    setLoading(true);
+    showSpinner(`جارٍ البحث عن "${esc(raw)}"…`);
+
+    try {
+      // ── 2. Fetch from Cinemana API ──────────────────────────
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+
+      const data = await res.json();
+
+      // ── 3. Render ───────────────────────────────────────────
+      if (!Array.isArray(data) || data.length === 0) {
+        showEmpty(raw);
+      } else {
+        renderMovies(data);
+      }
+
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  RENDER movie list
+  // ═══════════════════════════════════════════════════════════
+  function renderMovies(movies) {
+    $results.innerHTML = `
+      <div class="results-label">تم العثور على <strong>${movies.length}</strong> نتيجة</div>
+      <div class="movie-list" id="movieList"></div>`;
+
+    const list = document.getElementById('movieList');
+
+    movies.forEach((m, idx) => {
+      // ── Parse quality streams ──────────────────────────────
+      // Cinemana API puts streams in:
+      //   m.allVideoLinks  → array of { videoServer, link, quality }
+      //   m.videoLinks     → same
+      //   m.videos         → array of { quality, link }
+      // We handle all three shapes.
+      const streams = parseStreams(m);
+
+      // ── Card HTML ──────────────────────────────────────────
+      const card = document.createElement('div');
+      card.className = 'movie-card';
+      card.dataset.idx = idx;
+
+      const thumbHtml = m.imgURL || m.image || m.poster
+        ? `<img class="card-thumb"
+               src="${esc(m.imgURL || m.image || m.poster)}"
+               alt=""
+               onerror="this.replaceWith(makePlaceholder())"
+            />`
+        : `<div class="card-thumb-placeholder">🎞️</div>`;
+
+      const titleAr = esc(m.title   || m.name   || m.ar_title || '');
+      const titleEn = esc(m.title_e || m.en_name || m.en_title || m.title_en || '');
+      const year    = esc(m.year    || m.releaseYear || m.release_year || '');
+      const genre   = esc(m.main_category || m.category || m.type_title || '');
+      const isMovie = String(m.video_type || m.type || '').includes('1') ? 'فيلم' : 'محتوى';
+
+      const pillsHtml = streams.length
+        ? streams.map((s, si) =>
+            `<button class="q-pill" data-idx="${idx}" data-si="${si}">${esc(s.label)}</button>`
+          ).join('')
+        : `<p class="no-streams">لا تتوفر روابط مباشرة لهذا العنوان حالياً.</p>`;
+
+      card.innerHTML = `
+        <div class="card-head" onclick="toggleCard(${idx})">
+          ${thumbHtml}
+          <div class="card-info">
+            <div class="card-title">${titleAr || titleEn || 'بدون عنوان'}</div>
+            ${titleEn ? `<div class="card-title-en">${titleEn}</div>` : ''}
+            <div class="card-meta">
+              ${year  ? `<span class="badge badge-year">${year}</span>` : ''}
+              <span class="badge badge-type">${isMovie}</span>
+              ${genre ? `<span class="badge badge-genre">${genre}</span>` : ''}
+            </div>
+          </div>
+          <div class="card-chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="quality-label">اختر الجودة</div>
+          <div class="quality-pills" id="pills-${idx}">${pillsHtml}</div>
+          <div class="link-box" id="linkbox-${idx}">
+            <div class="link-row">
+              <input class="link-field" id="linkfield-${idx}" type="text" readonly dir="ltr" />
+              <button class="copy-btn" id="copybtn-${idx}" onclick="copyLink(${idx})">نسخ</button>
+            </div>
+            <div class="expiry-tag">⏳ ينتهي هذا الرابط خلال ساعتين — ابدأ المشاهدة الآن</div>
+          </div>
+        </div>`;
+
+      // Store streams on the element for later
+      card.dataset.streams = JSON.stringify(streams);
+      list.appendChild(card);
+    });
+
+    // ── Delegate quality pill clicks ────────────────────────
+    document.getElementById('movieList').addEventListener('click', e => {
+      const pill = e.target.closest('.q-pill');
+      if (!pill) return;
+      const idx = +pill.dataset.idx;
+      const si  = +pill.dataset.si;
+      selectQuality(idx, si);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Toggle card open/close
+  // ═══════════════════════════════════════════════════════════
+  function toggleCard(idx) {
+    const card = document.querySelector(`.movie-card[data-idx="${idx}"]`);
+    if (!card) return;
+    card.classList.toggle('open');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Select quality → show link
+  // ═══════════════════════════════════════════════════════════
+  function selectQuality(idx, si) {
+    const card    = document.querySelector(`.movie-card[data-idx="${idx}"]`);
+    const streams = JSON.parse(card.dataset.streams || '[]');
+    const stream  = streams[si];
+    if (!stream) return;
+
+    // Update pill active state
+    card.querySelectorAll('.q-pill').forEach((p, i) => {
+      p.classList.toggle('active', i === si);
+    });
+
+    // Show link
+    const linkBox   = document.getElementById(`linkbox-${idx}`);
+    const linkField = document.getElementById(`linkfield-${idx}`);
+    const copyBtn   = document.getElementById(`copybtn-${idx}`);
+
+    linkField.value = stream.url;
+    copyBtn.textContent = 'نسخ';
+    copyBtn.classList.remove('done');
+    linkBox.classList.add('show');
+    linkField.scrollLeft = 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Copy to clipboard
+  // ═══════════════════════════════════════════════════════════
+  async function copyLink(idx) {
+    const field = document.getElementById(`linkfield-${idx}`);
+    const btn   = document.getElementById(`copybtn-${idx}`);
+    try {
+      await navigator.clipboard.writeText(field.value);
+    } catch {
+      field.select();
+      document.execCommand('copy');
+    }
+    btn.textContent = '✅ تم';
+    btn.classList.add('done');
+    setTimeout(() => {
+      btn.textContent = 'نسخ';
+      btn.classList.remove('done');
+    }, 2800);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Parse streams from various API response shapes
+  //
+  //  Known Cinemana fields:
+  //    allVideoLinks[]  → { videoServer, link, quality, hd }
+  //    videoLinks[]     → { videoServer, link, quality, hd }
+  //    videos[]         → { quality, link }
+  //    stream_1080, stream_720, stream_480  (some endpoints)
+  // ═══════════════════════════════════════════════════════════
+  function parseStreams(m) {
+    const found = [];
+
+    // Shape A: allVideoLinks / videoLinks arrays
+    const linkArr = m.allVideoLinks || m.videoLinks || m.videos || [];
+    if (Array.isArray(linkArr)) {
+      linkArr.forEach(v => {
+        const url = v.link || v.url || v.stream || '';
+        if (!url) return;
+        const q = v.quality || v.hd || v.resolution || '';
+        const srv = v.videoServer || v.server || '';
+        const label = formatQualityLabel(q, srv);
+        found.push({ label, url });
+      });
+    }
+
+    // Shape B: flat quality fields
+    const flatMap = {
+      'stream_1080': '1080p FHD',
+      'stream_720':  '720p HD',
+      'stream_480':  '480p',
+      'stream_360':  '360p',
+      'stream_240':  '240p',
+      'link_1080':   '1080p FHD',
+      'link_720':    '720p HD',
+      'link_480':    '480p',
+    };
+    Object.entries(flatMap).forEach(([key, label]) => {
+      if (m[key]) found.push({ label, url: m[key] });
+    });
+
+    // Deduplicate by URL
+    const seen = new Set();
+    return found.filter(s => {
+      if (!s.url || seen.has(s.url)) return false;
+      seen.add(s.url);
+      return true;
+    });
+  }
+
+  function formatQualityLabel(quality, server) {
+    const q = String(quality || '');
+    const labelMap = {
+      '1': '1080p FHD', '2': '720p HD', '3': '480p',
+      '4': '360p', '5': '240p',
+      '1080': '1080p FHD', '720': '720p HD', '480': '480p',
+      '360': '360p', '240': '240p',
+      'fhd': '1080p FHD', 'hd': '720p HD', 'sd': '480p',
+    };
+    const mapped = labelMap[q.toLowerCase()] || (q ? `${q}p` : 'مشاهدة');
+    return server ? `${mapped} · ${server}` : mapped;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  UI state helpers
+  // ═══════════════════════════════════════════════════════════
+  function setLoading(on) {
+    $btn.disabled   = on;
+    $btnText.textContent = on ? 'جارٍ…' : 'بحث';
+    $btnIcon.textContent = on ? '⏳' : '🔍';
+  }
+
+  function showSpinner(msg) {
+    $results.innerHTML = `
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <p>${msg}</p>
+      </div>`;
+  }
+
+  function showEmpty(raw) {
+    $results.innerHTML = `
+      <div class="state-box">
+        <div class="si">🔍</div>
+        <p>لا توجد نتائج لـ <strong>"${esc(raw)}"</strong><br/>
+        جرّب كلمات مختلفة أو تحقق من الإملاء.</p>
+      </div>`;
+  }
+
+  function showError(msg) {
+    $results.innerHTML = `
+      <div class="error-box">
+        ❌ حدث خطأ أثناء جلب البيانات<br/>
+        <small style="direction:ltr;display:block;margin-top:4px;opacity:.7">${esc(msg)}</small>
+      </div>`;
+  }
+
+  // Placeholder element (called from onerror inline handler)
+  function makePlaceholder() {
+    const d = document.createElement('div');
+    d.className = 'card-thumb-placeholder';
+    d.textContent = '🎞️';
+    return d;
+  }
+
+  // XSS-safe HTML escaping
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+  </script>
+</body>
+</html>
