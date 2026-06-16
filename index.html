@@ -739,17 +739,17 @@
 
       // ── Detect content type ────────────────────────────────
       // video_type=1 → Movie, video_type=2 (or anything else) → Series
-      const typeVal  = String(m.video_type || m.type || '');
+      const typeVal  = String(m.kind || m.video_type || m.type || '');
       const isMovie  = typeVal === '1' || typeVal.toLowerCase() === 'movie';
       const typeBadge = isMovie ? 'فيلم' : 'مسلسل';
 
       // Store the raw item data and type flag on the element
-      card.dataset.itemId   = m.id || m.ID || m.video_id || '';
+      card.dataset.itemId   = m.nb || m.id || m.ID || m.video_id || '';
       card.dataset.isMovie  = isMovie ? '1' : '0';
       card.dataset.fetched  = '0'; // becomes '1' after first deep fetch
 
       // ── Thumbnail ──────────────────────────────────────────
-      const thumbHtml = m.imgURL || m.image || m.poster
+      const thumbHtml = m.imgThumbObjUrl || m.imgObjUrl || m.imgURL || m.image || m.poster
         ? `<img class="card-thumb"
                src="${esc(m.imgURL || m.image || m.poster)}"
                alt=""
@@ -757,10 +757,10 @@
             />`
         : `<div class="card-thumb-placeholder">🎞️</div>`;
 
-      const titleAr = esc(m.title   || m.name   || m.ar_title || '');
-      const titleEn = esc(m.title_e || m.en_name || m.en_title || m.title_en || '');
+      const titleAr = esc(m.ar_title || m.title || m.name || '');
+      const titleEn = esc(m.en_title || m.title_e || m.en_name || m.title_en || '');
       const year    = esc(m.year    || m.releaseYear || m.release_year || '');
-      const genre   = esc(m.main_category || m.category || m.type_title || '');
+      const genre   = esc((m.categories && m.categories[0] && m.categories[0].ar_title) || m.main_category || m.category || '');
 
       // ── Card skeleton (card-body filled on first open) ─────
       card.innerHTML = `
