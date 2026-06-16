@@ -649,19 +649,19 @@
 
   /** Detailed movie info + direct video links */
   const API_MOVIE_DETAIL = (id) =>
-    `${API_BASE}/transcoderVideoFiles/V/0/id/${id}`;
+    `${API_BASE}/transcoddedFiles/id/${id}`;
 
-  /** Seasons list for a series */
+  /** Flat episode list for a series (returns all episodes with nb as ID) */
   const API_SEASONS = (id) =>
-    `${API_BASE}/seasons/V/2/id/${id}`;
+    `${API_BASE}/videoSeason/id/${id}`;
 
-  /** Episodes list for a given season */
+  /** Episodes list for a given season (unused now but kept) */
   const API_EPISODES = (id, seasonId) =>
     `${API_BASE}/seasonEpisode/V/2/id/${id}/seasonId/${seasonId}`;
 
   /** Video links for a specific episode */
   const API_EP_LINKS = (episodeId) =>
-    `${API_BASE}/transcoderVideoFiles/V/0/id/${episodeId}`;
+    `${API_BASE}/transcoddedFiles/id/${episodeId}`;
 
   // ═══════════════════════════════════════════════════════════
   //  DOM shortcuts
@@ -865,9 +865,8 @@
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data    = await res.json();
-    // The transcoder endpoint may return an array or a single object
-    const payload = Array.isArray(data) ? data[0] : data;
-    const streams = parseStreams(payload || {});
+    // transcoddedFiles returns an array of { videoUrl, resolution, name }
+    const streams = parseStreams(Array.isArray(data) ? data : (data ? [data] : []));
 
     // If no streams found in transcoder response, fall back to search-result data
     // (card doesn't have raw search data anymore; streams will just be empty)
@@ -896,46 +895,56 @@
   //  SERIES branch — fetch seasons, then episodes for S1
   // ═══════════════════════════════════════════════════════════
   async function deepFetchSeries(card, idx, itemId, body) {
-    // ── Step 1: fetch seasons list ─────────────────────────
-    const seasRes  = await fetch(API_SEASONS(itemId), { headers: { Accept: 'application/json' } });
-    if (!seasRes.ok) throw new Error(`HTTP ${seasRes.status} (seasons)`);
+    // ── Fetch flat episode list via /videoSeason/id/{id} ──
+    const seasRes = await fetch(API_SEASONS(itemId), { headers: { Accept: 'application/json' } });
+    if (!seasRes.ok) throw new Error(`HTTP ${seasRes.status} (episodes)`);
 
-    const seasons  = await seasRes.json();
-    const seasArr  = Array.isArray(seasons) ? seasons : (seasons.seasons || []);
+    const data     = await seasRes.json();
+    const episodes = Array.isArray(data) ? data : (data.episodes || []);
 
-    if (!seasArr.length) {
-      body.innerHTML = `<p class="no-streams" style="padding:14px 0">لا تتوفر مواسم لهذا المسلسل.</p>`;
+    if (!episodes.length) {
+      body.innerHTML = `<p class="no-streams" style="padding:14px 0">لا تتوفر حلقات لهذا المسلسل.</p>`;
       return;
     }
 
-    // ── Step 2: build season tabs (store season list on card) ─
-    card.dataset.seasons = JSON.stringify(seasArr);
-    card.dataset.itemId  = itemId; // already set, just making sure
+    // ── Group episodes by season number ───────────────────
+    const seasonsMap = {};
+    episodes.forEach(ep => {
+      const sNum = ep.season || ep.seasonNumber || ep.season_number || '1';
+      if (!seasonsMap[sNum]) seasonsMap[sNum] = [];
+      seasonsMap[sNum].push(ep);
+    });
+    const seasonKeys = Object.keys(seasonsMap).sort((a, b) => +a - +b);
 
-    const tabsHtml = seasArr.map((s, si) => {
-      const label = s.title || s.name || s.ar_title || `الموسم ${si + 1}`;
-      return `<button class="season-tab${si === 0 ? ' active' : ''}"
-                data-card-idx="${idx}"
-                data-season-id="${esc(s.id || s.seasonId || si)}"
-                data-season-si="${si}"
-              >${esc(label)}</button>`;
-    }).join('');
+    // ── Build season tabs if more than one season ─────────
+    const tabsHtml = seasonKeys.length > 1
+      ? `<div class="season-tabs-label">الموسم</div>
+         <div class="season-tabs" id="seasons-${idx}">
+           ${seasonKeys.map((sNum, si) =>
+             `<button class="season-tab${si === 0 ? ' active' : ''}"
+                      data-card-idx="${idx}"
+                      data-season-id="${esc(sNum)}"
+                      data-season-si="${si}"
+             >الموسم ${esc(sNum)}</button>`
+           ).join('')}
+         </div>`
+      : '';
 
     body.innerHTML = `
-      <div class="season-tabs-label">الموسم</div>
-      <div class="season-tabs" id="seasons-${idx}">${tabsHtml}</div>
-      <div id="episodes-${idx}">
-        <div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>
-      </div>`;
+      ${tabsHtml}
+      <div id="episodes-${idx}"></div>`;
 
-    // ── Step 3: load episodes for the first season ─────────
-    await loadEpisodes(card, idx, itemId, seasArr[0].id || seasArr[0].seasonId || 0);
+    // Store all episodes grouped on the card for tab switching
+    card.dataset.episodesMap = JSON.stringify(seasonsMap);
+
+    // ── Render first season episodes ──────────────────────
+    renderEpisodeList(idx, seasonsMap[seasonKeys[0]]);
   }
 
   // ═══════════════════════════════════════════════════════════
   //  Season tab selection
   // ═══════════════════════════════════════════════════════════
-  async function selectSeason(tab) {
+  function selectSeason(tab) {
     const idx      = +tab.dataset.cardIdx;
     const seasonId = tab.dataset.seasonId;
     const card     = document.querySelector(`.movie-card[data-idx="${idx}"]`);
@@ -945,40 +954,27 @@
     card.querySelectorAll('.season-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
 
-    // Show inline loading in episodes area
-    const epArea = document.getElementById(`episodes-${idx}`);
-    epArea.innerHTML = `<div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>`;
-
-    try {
-      await loadEpisodes(card, idx, card.dataset.itemId, seasonId);
-    } catch (err) {
-      epArea.innerHTML = renderCardError(err.message);
-    }
+    // Render episodes from stored map
+    const seasonsMap = JSON.parse(card.dataset.episodesMap || '{}');
+    renderEpisodeList(idx, seasonsMap[seasonId] || []);
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Load episodes for a given season and render them
+  //  Render episode list from array of episode objects
   // ═══════════════════════════════════════════════════════════
-  async function loadEpisodes(card, idx, itemId, seasonId) {
+  function renderEpisodeList(idx, episodes) {
     const epArea = document.getElementById(`episodes-${idx}`);
-    epArea.innerHTML = `<div class="card-loading"><div class="card-spinner"></div><span>جارٍ جلب الحلقات…</span></div>`;
-
-    const res = await fetch(API_EPISODES(itemId, seasonId), { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status} (episodes)`);
-
-    const data    = await res.json();
-    const episodes = Array.isArray(data) ? data : (data.episodes || []);
 
     if (!episodes.length) {
       epArea.innerHTML = `<p class="no-streams" style="padding:8px 0">لا تتوفر حلقات لهذا الموسم.</p>`;
       return;
     }
 
-    // Build episode items — links fetched on demand when each episode is expanded
     const epHtml = episodes.map((ep, ei) => {
-      const epId    = ep.id || ep.episodeId || ep.video_id || '';
-      const epNum   = ep.episode_number || ep.number || ep.num || (ei + 1);
-      const epTitle = esc(ep.title || ep.name || ep.ar_title || `الحلقة ${epNum}`);
+      // Use "nb" as the video ID (confirmed from API response)
+      const epId    = ep.nb || ep.id || ep.episodeId || ep.video_id || '';
+      const epNum   = ep.episodeNummer || ep.episode_number || ep.number || (ei + 1);
+      const epTitle = esc(ep.ar_title || ep.en_title || ep.title || ep.name || `الحلقة ${epNum}`);
 
       return `
         <div class="episode-item" id="ep-item-${idx}-${ei}">
@@ -998,6 +994,11 @@
     }).join('');
 
     epArea.innerHTML = `<div class="episodes-wrap">${epHtml}</div>`;
+  }
+
+  // kept for compatibility (no longer called for series main fetch)
+  async function loadEpisodes(card, idx, itemId, seasonId) {
+    /* intentionally empty — replaced by renderEpisodeList */
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1033,8 +1034,8 @@
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data    = await res.json();
-    const payload = Array.isArray(data) ? data[0] : data;
-    const streams = parseStreams(payload || {});
+    // transcoddedFiles returns an array directly
+    const streams = parseStreams(Array.isArray(data) ? data : (data ? [data] : []));
 
     const pillsHtml = streams.length
       ? streams.map((s, si) =>
@@ -1170,33 +1171,39 @@
   function parseStreams(m) {
     const found = [];
 
-    // Shape A: allVideoLinks / videoLinks arrays
-    const linkArr = m.allVideoLinks || m.videoLinks || m.videos || [];
-    if (Array.isArray(linkArr)) {
-      linkArr.forEach(v => {
-        const url = v.link || v.url || v.stream || '';
+    // Shape A: transcoddedFiles array — { videoUrl, resolution, name }
+    if (Array.isArray(m)) {
+      m.forEach(v => {
+        const url = v.videoUrl || v.link || v.url || '';
         if (!url) return;
-        const q = v.quality || v.hd || v.resolution || '';
-        const srv = v.videoServer || v.server || '';
-        const label = formatQualityLabel(q, srv);
+        const q = v.resolution || v.quality || v.name || '';
+        const label = q || 'مشاهدة';
         found.push({ label, url });
       });
-    }
+    } else {
+      // Shape B: allVideoLinks / videoLinks arrays (fallback)
+      const linkArr = m.allVideoLinks || m.videoLinks || m.videos || [];
+      if (Array.isArray(linkArr)) {
+        linkArr.forEach(v => {
+          const url = v.videoUrl || v.link || v.url || v.stream || '';
+          if (!url) return;
+          const q = v.resolution || v.quality || v.hd || '';
+          const srv = v.videoServer || v.server || '';
+          const label = (q || 'مشاهدة') + (srv ? ` · ${srv}` : '');
+          found.push({ label, url });
+        });
+      }
 
-    // Shape B: flat quality fields
-    const flatMap = {
-      'stream_1080': '1080p FHD',
-      'stream_720':  '720p HD',
-      'stream_480':  '480p',
-      'stream_360':  '360p',
-      'stream_240':  '240p',
-      'link_1080':   '1080p FHD',
-      'link_720':    '720p HD',
-      'link_480':    '480p',
-    };
-    Object.entries(flatMap).forEach(([key, label]) => {
-      if (m[key]) found.push({ label, url: m[key] });
-    });
+      // Shape C: flat quality fields
+      const flatMap = {
+        'stream_1080': '1080p', 'stream_720': '720p', 'stream_480': '480p',
+        'stream_360': '360p',   'stream_240': '240p',
+        'link_1080':  '1080p',  'link_720':  '720p',  'link_480':  '480p',
+      };
+      Object.entries(flatMap).forEach(([key, label]) => {
+        if (m[key]) found.push({ label, url: m[key] });
+      });
+    }
 
     // Deduplicate by URL
     const seen = new Set();
